@@ -1,6 +1,5 @@
 import React, { useState } from "react"
 import DateComponent from "../DateComponent"
-import regression from "regression"
 
 export default function WindFarmPowerCalculationBlock({ forecast, windFarmPassport, rotorArea }) {
 
@@ -31,8 +30,6 @@ export default function WindFarmPowerCalculationBlock({ forecast, windFarmPasspo
         setDensitiesAtMoment(densities)
     }
     const calcWindFarmPowersAtMoment = () => {
-        // const approximation = getApproximationFunction(windFarmPassport)
-
         const windFarmPowers = []
 
         for (const timeForecast of forecast) {
@@ -40,60 +37,48 @@ export default function WindFarmPowerCalculationBlock({ forecast, windFarmPasspo
             const densityIndex = forecast.indexOf(timeForecast)
             const density = densitiesAtMoment[densityIndex]
 
-            let currentPower = 0
+            const approxPower = getPower(windSpeed)
 
-            // Find matching wind speed range in passport
-            const passportEntry = windFarmPassport.slice(1, windFarmPassport.length).find(entry => +entry.wind_speed === windSpeed)
-
-            currentPower = passportEntry ? +passportEntry.power : (0.5 * density * rotorArea)
-
-            windFarmPowers.push(+(currentPower.toFixed(2)))
+            windFarmPowers.push(approxPower)
         }
 
         setWindFarmPowersAtMoment(windFarmPowers)
     }
 
-    // function getApproximationFunction(windFarmPassport) {
-    //
-    //     const farmPassport = structuredClone(windFarmPassport)
-    //     farmPassport.shift()
-    //
-    //     // Витягуємо дані для побудови апроксимації
-    //     const points = farmPassport.map(item => ([item.wind_speed, item.power]))
-    //
-    //     // Ступінь поліному для апроксимації
-    //     // Можна змінювати для підлаштування
-    //     const degree = 3
-    //
-    //     // Будуємо поліном
-    //     const result = regression.polynomial(points, {order: degree})
-    //     const coefficients = result.equation
-    //
-    //     // Повертаємо функцію для обчислення апроксимованої потужності
-    //     return (windSpeed) => {
-    //
-    //         // Обчислюємо значення поліному в заданій точці
-    //         let approximatedPower = 0
-    //         for (let i = 0; i <= degree; i++) {
-    //             approximatedPower += coefficients[i] * Math.pow(windSpeed, degree - i)
-    //         }
-    //
-    //         return approximatedPower
-    //     }
-    // }
+    const getPower = (windSpeed) => {
+
+        if(windSpeed < windFarmPassport[0].wind_speed) {
+            return 0
+        }
+
+        let maxPower = windFarmPassport[windFarmPassport.length - 1].power
+
+        for(let i = 0; i < windFarmPassport.length - 1; i++) {
+
+            let lower = windFarmPassport[i]
+            let upper = windFarmPassport[i+1]
+
+            if(windSpeed >= lower.wind_speed && windSpeed < upper.wind_speed) {
+                const fraction = (windSpeed - lower.wind_speed) / (upper.wind_speed - lower.wind_speed)
+                return +lower.power + (+upper.power - +lower.power) * fraction
+            }
+        }
+
+        return maxPower
+    }
 
     const calcWindFarmPowerSum = () => {
-        const powerSum = windFarmPowersAtMoment.reduce((acc, power) => acc + power, 0).toFixed(2)
+        const powerSum = windFarmPowersAtMoment.reduce((acc, power) => acc + +power, 0)
         setWindFarmPowerSum(powerSum)
     }
 
     const calcWindFarmPowerAvg = () => {
-        const powerAvg = +(windFarmPowerSum / forecast.length).toFixed(2)
+        const powerAvg = +(+windFarmPowerSum / forecast.length)
         setWindFarmPowerAvg(powerAvg)
     }
 
     const calcWindFarmEnergyProduced = () => {
-        setWindFarmEnergyProduced(windFarmPowerSum * 3)
+        setWindFarmEnergyProduced(+windFarmPowerSum * 3)
     }
 
     return (
@@ -129,19 +114,19 @@ export default function WindFarmPowerCalculationBlock({ forecast, windFarmPasspo
                         {forecast.map((forecast, index) => (
                             <tr key={forecast}>
                                 <td><DateComponent date={forecast.date}/></td>
-                                <td>{forecast.wind_speed}</td>
-                                <td>{windFarmPowersAtMoment[index]}</td>
+                                <td>{Number(forecast.wind_speed).toFixed(2)}</td>
+                                <td>{Number(windFarmPowersAtMoment[index]).toFixed(2)}</td>
                             </tr>
                         ))}
                         <tr>
                             <td>Потужність за період</td>
                             <td></td>
-                            <td>{windFarmPowerAvg}</td>
+                            <td>{Number(windFarmPowerAvg).toFixed(2)}</td>
                         </tr>
                         <tr>
                             <td>Прогноз виробництва електроенергії</td>
                             <td></td>
-                            <td>{windFarmEnergyProduced}</td>
+                            <td>{Number(windFarmEnergyProduced).toFixed(2)}</td>
                         </tr>
                         </tbody>
                     </table>
